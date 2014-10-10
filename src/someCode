@@ -1,0 +1,217 @@
+#coding: utf-8
+import win32com.client
+import datetime
+from lxml import html, etree
+
+def boolHotelNameExists(hotelName, lHotelName):
+    for iHotelName in lHotelName:
+        if hotelName in iHotelName:
+            return True
+    return False
+
+
+def pricePrint(SummPr,len,currIndex, strPlacement, listPlacement,numPrices,basicPr,additionalAD):
+    global currentIndexI
+    maxCHD=int(room[12][currIndex].xpath("./PlaceTo")[0].text)-int(room[12][currIndex].xpath("./PlaceFrom")[0].text)+1
+    for i in range (maxCHD-len,maxCHD):     
+        SummPr+=float(room[12][currIndex].xpath("./Price")[0].text)
+        
+        if room[12][currIndex].xpath("./AgeTo")[0].text=='999':
+            additionalAD+=1
+        else: 
+            if room[12][currIndex].xpath("./AgeFrom"):
+                strPlacement+=" ("+ room[12][currIndex].xpath("./AgeFrom")[0].text+"-"+room[12][currIndex].xpath("./AgeTo")[0].text+")"
+            else:
+                strPlacement+=" (0-"+room[12][currIndex].xpath("./AgeTo")[0].text+")"
+                
+        len-=1
+        if len==0:            
+#             print hotel[1].text,"   ",room[1].text, room[0].text
+            #blok, который заменю на ф-цию *****************************************************************************************************************
+#             print "summPr=",SummPr+basicPr," strPlacement=",strPlacement
+#             print "addAD=",additionalAD
+#             strPlacement+=str(additionalAD)
+            activeSheetTB.Cells(currentIndexI,8).value=SummPr+basicPr
+            activeSheetTB.Cells(currentIndexI,1).value=hotel[1].text
+            activeSheetTB.Cells(currentIndexI,2).value=room.xpath("./Name")[0].text
+            if room[11].text == 'PerRoom PerNight':
+                if strPlacement == '':
+                    activeSheetTB.Cells(currentIndexI,3).value=str(int(room[10].text)+additionalAD)+u" взр"
+                else:
+                    activeSheetTB.Cells(currentIndexI,3).value=str(int(room[10].text)+additionalAD)+"+"+str(maxCHD-len-additionalAD)+strPlacement
+            else:
+                if strPlacement == '':
+                    activeSheetTB.Cells(currentIndexI,3).value=str(int(room[9].text)+additionalAD)+u" взр"
+                else:
+                    activeSheetTB.Cells(currentIndexI,3).value=str(int(room[9].text)+additionalAD)+"+"+str(maxCHD-len-additionalAD)+strPlacement
+            activeSheetTB.Cells(currentIndexI,4).value=room[8].text
+            activeSheetTB.Cells(currentIndexI,5).value=room[2].text
+            activeSheetTB.Cells(currentIndexI,6).value=room[3].text
+            activeSheetTB.Cells(currentIndexI,7).value=1
+            activeSheetTB.Cells(currentIndexI,9).value=room[11].text
+            currentIndexI+=1        
+            #конец блока *****************************************************************************************************************
+            listPlacement+=[strPlacement]
+#             activeSheetTB.Cells(1,20).value+=strPlacement
+            if SummPr !=maxCHD*float(room[12][currIndex].xpath("./Price")[0].text):
+                return
+        else:
+            if strPlacement not in listPlacement:
+#                 print hotel[1].text,"   ",room[1].text,  room[0].text
+                #blok, который заменю на ф-цию *****************************************************************************************************************
+#                 print "summPr=",SummPr+basicPr," strPlacement=",strPlacement
+                activeSheetTB.Cells(currentIndexI,8).value=SummPr+basicPr
+                activeSheetTB.Cells(currentIndexI,1).value=hotel[1].text
+                activeSheetTB.Cells(currentIndexI,2).value=room.xpath("./Name")[0].text
+#                 strPlacement+=str(additionalAD)
+#                 print "addAD=",additionalAD
+                if room[11].text == 'PerRoom PerNight':
+                    if strPlacement == '':
+                        activeSheetTB.Cells(currentIndexI,3).value=str(int(room[10].text)+additionalAD)+u" взр"
+                    else:
+                        activeSheetTB.Cells(currentIndexI,3).value=str(int(room[10].text)+additionalAD)+"+"+str(maxCHD-len-additionalAD)+strPlacement
+                else:
+                    if strPlacement == '':
+                        activeSheetTB.Cells(currentIndexI,3).value=str(int(room[9].text)+additionalAD)+u" взр"
+                    else:
+                        activeSheetTB.Cells(currentIndexI,3).value=str(int(room[9].text)+additionalAD)+"+"+str(maxCHD-len-additionalAD)+strPlacement
+                activeSheetTB.Cells(currentIndexI,9).value=room[11].text
+                activeSheetTB.Cells(currentIndexI,4).value=room[8].text
+                activeSheetTB.Cells(currentIndexI,5).value=room[2].text
+                activeSheetTB.Cells(currentIndexI,6).value=room[3].text
+                activeSheetTB.Cells(currentIndexI,7).value=1
+                currentIndexI+=1        
+                #конец блока *****************************************************************************************************************      
+                listPlacement+=[strPlacement]
+#                 activeSheetTB.Cells(1,20).value+=strPlacement
+            #
+            if currIndex<(numPrices-1):
+                for j in range(currIndex+1,numPrices):
+                    pricePrint(SummPr, len, j, strPlacement, listPlacement,numPrices, basicPr,additionalAD)
+                    
+    if currIndex<((numPrices-1)):
+        pricePrint(0, maxCHD, currIndex+1, '', listPlacement,numPrices, basicPr,0)
+
+
+
+
+
+
+Excel = win32com.client.Dispatch("Excel.Application")
+w_fb = Excel.Workbooks.Open('D:\\py workspace\\xml to xls lineal\\xml\\GUARANTEE ROOMS only high season 20.12.14-13.01.15.xls')
+w_tb = Excel.Workbooks.Add()
+
+
+activeSheetFB = w_fb.WorkSheets(2)
+activeSheetTB = w_tb.WorkSheets(1)
+
+
+# формируем список имен отелей, где есть дискаунты. ОТ этого зависит просчет в perRoom
+print "Подготовка списка имен отелей, на которые есть дисконты, из файла GUARANTEE ROOMS only high season 20.12.14-13.01.15.xls"
+
+listHotelName=[activeSheetFB.Cells(1,1).value]
+counterEmties=0
+i=1
+while counterEmties<=6:
+    if activeSheetFB.Cells(i,1).value==None: counterEmties+=1
+    else:
+        if (i!=1) and activeSheetFB.Cells(i-1,1).value==None:
+            listHotelName+=[activeSheetFB.Cells(i,1).value]
+        counterEmties=0
+    i+=1   
+
+print "список сформирован listHotelName"
+#*************************************************************************************
+ 
+
+
+
+
+tree = etree.parse('D:\\py workspace\\xml to xls lineal\\xml\\pricelist.xml') # Парсинг файла
+
+root = tree.getroot()
+
+#формируем Шапку выходного ексель файла
+headList=[u'Гостиница', u'Номер', u'Размещение', u'Питание', u'С', u'По', u'Ночей', u'Значение']
+tempCnt=1
+for item in headList:
+    activeSheetTB.Cells(2,tempCnt).value=headList[tempCnt-1]
+    tempCnt+=1
+#*************************************************************************************
+currentIndexI=3
+for hotel in root[2]:
+    for room in hotel[7]: #[7] -означает, что выбираем 8й тег отеля, а это <rooms>        
+        if int(room.xpath("./Availability")[0].text)!=0:
+            for indexPrice in range(len(room[12])):
+#                 if room[12][indexPrice][1].text!='0.00': #нафига это условие я поставил??? о_О
+                print currentIndexI
+#                     for tagRoom in room:
+#                         print tagRoom.tag, tagRoom.text
+                if indexPrice==0:
+#                         print room[11].text
+#                         print "price for AD =",float(room[12][0].xpath("./Price")[0].text)
+#                     print room[1].text, "kol-vo prices -> ", len(room[12])
+                    if len(room[12])>1 and room[12][len(room[12])-1].xpath("./AgeTo")[0].text=='999' and room[11].text == 'PerPax PerNight':
+                        counterMaxBasicAD=int(room[9].text)
+                    else:
+                        counterMaxBasicAD=int(room[10].text)
+                    for countAD in range(int(room[9].text),counterMaxBasicAD+1):
+                        if room[11].text == 'PerRoom PerNight':
+                            activeSheetTB.Cells(currentIndexI,8).value=float(room[12][0].xpath("./Price")[0].text)
+                        else:
+                            activeSheetTB.Cells(currentIndexI,8).value=float(room[12][0].xpath("./Price")[0].text)*countAD
+                        activeSheetTB.Cells(currentIndexI,1).value=hotel[1].text
+                        activeSheetTB.Cells(currentIndexI,2).value=room.xpath("./Name")[0].text
+                        activeSheetTB.Cells(currentIndexI,3).value=str(countAD)+u" взр"
+                        activeSheetTB.Cells(currentIndexI,4).value=room[8].text
+                        activeSheetTB.Cells(currentIndexI,5).value=room[2].text
+                        activeSheetTB.Cells(currentIndexI,6).value=room[3].text
+                        activeSheetTB.Cells(currentIndexI,7).value=1
+                        currentIndexI+=1        
+                else: 
+                    flagPerRoomDiscount=True
+                    if (room[11].text == 'PerRoom PerNight') and (not boolHotelNameExists(hotel[1].text, listHotelName)) :
+                        flagPerRoomDiscount=False
+                    if flagPerRoomDiscount:
+                        maxCHD=int(room[12][indexPrice].xpath("./PlaceTo")[0].text)+1-int(room[12][indexPrice].xpath("./PlaceFrom")[0].text)
+                        basicPr=float(room[12][0].xpath("./Price")[0].text)
+                        if room[11].text == 'PerRoom PerNight':
+                            pricePrint(0,maxCHD,indexPrice, '', [], len(room[12]),basicPr,0)
+                        else:
+                            pricePrint(0,maxCHD,indexPrice, '', [], len(room[12]),basicPr*int(room[9].text),0)
+                        break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+activeSheetTB.Cells(1,2).value=u"Дата:"
+activeSheetTB.Cells(1,3).value=datetime.date.today()
+activeSheetTB.Range("A:B").ColumnWidth = 27
+activeSheetTB.Range("C:C").ColumnWidth = 35
+activeSheetTB.Range("E:F").ColumnWidth = 11.2
+w_tb.SaveAs(u'D:\\py workspace\\xml to xls lineal\\out_data.xlsx')
+w_tb.Close()
+w_fb.Close()
+ 
+Excel.Quit()
